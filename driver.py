@@ -68,7 +68,7 @@ def plotResults(t, dt, targetPosition, robotPosition, robotTheta, robotVelocity,
 if __name__ == "__main__":
   
   # Change Parameter for different target types:
-  typeNum = 6
+  typeNum = 2
   types = ["circle", "linear", "sin", "circleN", "linearN", "sinN"]
   targetType = types[typeNum-1]
 
