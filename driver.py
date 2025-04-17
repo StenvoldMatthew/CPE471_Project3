@@ -41,8 +41,8 @@ def plotResults(t, dt, targetPosition, robotPosition, robotTheta, robotVelocity,
 
   # --- 3. Robot Orientation, Target Orientation, and Relative Orientation Over Time ---
 
-  axs[1, 0].plot(timeAxis, robotTheta % (2 * np.pi), label="Robot Orientation", color='green')
-  axs[1, 0].plot(timeAxis, targetTheta % (2 * np.pi), label="Target Orientation", color='blue')
+  axs[1, 0].plot(timeAxis, robotTheta, label="Robot Orientation", color='green')
+  axs[1, 0].plot(timeAxis, targetTheta, label="Target Orientation", color='blue')
   axs[1, 0].plot(timeAxis, relativeOrientation, label="Relative Orientation", color='purple')
   axs[1, 0].set_xlabel("Time (s)")
   axs[1, 0].set_ylabel("Angle (rad)")
@@ -68,7 +68,7 @@ def plotResults(t, dt, targetPosition, robotPosition, robotTheta, robotVelocity,
 if __name__ == "__main__":
   
   # Change Parameter for different target types:
-  typeNum = 5
+  typeNum = 6
   types = ["circle", "linear", "sin", "circleN", "linearN", "sinN"]
   targetType = types[typeNum-1]
 
@@ -111,6 +111,8 @@ if __name__ == "__main__":
   # ==== Variables for Calculation ====
   phi = np.array(dup(0, len(t)), np.float64)
 
+  modRelative = False
+
   # Simulation loop
   for i in range(0, len(t)):
     time = (t[i] * 1.495) / 100
@@ -139,13 +141,31 @@ if __name__ == "__main__":
       targetPosition[i, :] = [targetPosX, targetPosY]
 
     elif targetType == "linearN":
-      # Linear trajectory (constant velocity up-left)
-      targetVelocity = 10
-      vx = targetVelocity / np.sqrt(2)
-      vy = targetVelocity / np.sqrt(2)
-      targetPosX = 150 - vx * time + random.uniform(-noiseStd, noiseStd) + noiseMean
-      targetPosY = 0 + vy * time + random.uniform(-noiseStd, noiseStd) + noiseMean
+      targetVelocity = 15
+      # Set base heading (45 degrees for diagonal movement)
+      baseAngle = np.pi / 4 * 3 # 45 degrees in radians
+
+      # Add small angular noise to the heading
+      maxAngleNoise = np.radians(30)  # max deviation of ±30 degrees
+      angleNoise = np.clip(np.random.normal(0, noiseStd), -maxAngleNoise, maxAngleNoise)
+      noisyAngle = baseAngle + angleNoise
+
+      # Compute velocity components with noise
+      vx = targetVelocity * np.cos(noisyAngle)
+      vy = targetVelocity * np.sin(noisyAngle)
+
+      # Initialize starting position (150, 0)
+      if i == 0:  # First iteration
+          targetPosX = 150
+          targetPosY = 0
+      else:
+          # Update position based on previous position
+          targetPosX = targetPosition[i-1, 0] + vx * dt
+          targetPosY = targetPosition[i-1, 1] + vy * dt
+
+      # Assign to target position
       targetPosition[i, :] = [targetPosX, targetPosY]
+      modRelative = True
 
     elif targetType == "sin":
       # Sine wave trajectory
@@ -158,6 +178,7 @@ if __name__ == "__main__":
       targetPosX = 30 + targetVelocity * time * 2 + random.uniform(-noiseStd, noiseStd) + noiseMean
       targetPosY = 30 + 20 * np.sin(1 * time) + random.uniform(-noiseStd, noiseStd) + noiseMean
       targetPosition[i, :] = [targetPosX, targetPosY]
+      modRelative = True
 
     else:
       print("Type not recognized")
@@ -194,7 +215,10 @@ if __name__ == "__main__":
     # Compute and store relative heading (angle of relative velocity vector)
     xrv = targetVelocity * np.cos(targetTheta[0]) - robotVelocity[0] * np.cos(robotTheta[0])
     yrv = targetVelocity * np.sin(targetTheta[i]) - robotVelocity[i] * np.sin(robotTheta[i])
-    relativeOrientation[i] = np.arctan2(yrv, xrv) % (2 * np.pi)
+    relativeOrientation[i] = np.arctan2(yrv, xrv) 
+
+    if modRelative:
+      relativeOrientation[i] = relativeOrientation[i] % (2 * np.pi)
 
   # After the simulation loop, call the plot function to visualize the results
   plotResults(t, dt, targetPosition, robotPosition, robotTheta, robotVelocity, targetTheta, relativeOrientation)
